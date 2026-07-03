@@ -25,7 +25,7 @@ jobs:
         id: auth
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: 'projects/123456789/locations/global/workloadIdentityPools/github/providers/my-repo'
+          workload_identity_provider: 'projects/577474884701/locations/global/workloadIdentityPools/github-actions-pool/providers/github-provider'
           service_account: 'deployer@colegio-henriques.iam.gserviceaccount.com'
 
       - name: Set up Cloud SDK
