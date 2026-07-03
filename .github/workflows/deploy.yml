@@ -46,4 +46,11 @@ jobs:
           service: ${{ env.SERVICE_NAME }}
           region: ${{ env.REGION }}
           image: europe-west1-docker.pkg.dev/${{ env.PROJECT_ID }}/ch-registry/${{ env.SERVICE_NAME }}:${{ github.sha }}
-          flags: '--allow-unauthenticated'
+          flags: '--allow-unauthenticated --add-cloudsql-instances colegio-henriques:europe-west1:ch-db-cluster'
+          env_vars: |
+            DB_HOST=/cloudsql/colegio-henriques:europe-west1:ch-db-cluster
+            DB_PORT=5432
+            DB_NAME=iam_db
+            DB_USER=ch_admin
+            DB_PASSWORD=6WY3nKNu3MiaPtI5gI3VfEsxsc8ISUTxTVFlArqLfapyoubk
+            JWT_SECRET=super_secret_temporary_key_123
