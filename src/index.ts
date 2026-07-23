@@ -122,9 +122,74 @@ app.post('/auth/google', async (req: Request, res: Response) => {
   }
 });
 
-// Rota protegida de exemplo (apenas Admins)
-app.get('/users/me', authenticate, (req: Request, res: Response) => {
-  res.status(200).json({ user: req.user });
+// Listar todos os utilizadores (Apenas Admins)
+app.get('/users', authenticate, requireRole(['admin']), async (req: Request, res: Response) => {
+  try {
+    const result = await query(
+      'SELECT id, email, role, first_name, last_name, is_active, created_at FROM users ORDER BY created_at DESC'
+    );
+    res.status(200).json({ users: result.rows });
+  } catch (error) {
+    console.error('Erro ao listar utilizadores:', error);
+    res.status(500).json({ error: 'Erro interno ao procurar utilizadores.' });
+  }
+});
+
+// Atualizar Papel/Permissão de um Utilizador (Apenas Admins)
+app.put('/users/:id/role', authenticate, requireRole(['admin']), async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { role } = req.body;
+
+    const VALID_ROLES = ['admin', 'professor', 'encarregado', 'aluno', 'staff'];
+    if (!role || !VALID_ROLES.includes(role)) {
+      res.status(400).json({ error: 'Papel/Função inválida.' });
+      return;
+    }
+
+    const result = await query(
+      'UPDATE users SET role = $1, updated_at = NOW() WHERE id = $2 RETURNING id, email, role',
+      [role, id]
+    );
+
+    if (result.rows.length === 0) {
+      res.status(404).json({ error: 'Utilizador não encontrado.' });
+      return;
+    }
+
+    res.status(200).json({ message: 'Papel atualizado com sucesso.', user: result.rows[0] });
+  } catch (error) {
+    console.error('Erro ao atualizar papel do utilizador:', error);
+    res.status(500).json({ error: 'Erro interno no servidor.' });
+  }
+});
+
+// Alterar Estado (Ativo/Inativo) de um Utilizador (Apenas Admins)
+app.put('/users/:id/status', authenticate, requireRole(['admin']), async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { is_active } = req.body;
+
+    if (typeof is_active !== 'boolean') {
+      res.status(400).json({ error: 'Estado inválido.' });
+      return;
+    }
+
+    const result = await query(
+      'UPDATE users SET is_active = $1, updated_at = NOW() WHERE id = $2 RETURNING id, email, is_active',
+      [is_active, id]
+    );
+
+    if (result.rows.length === 0) {
+      res.status(404).json({ error: 'Utilizador não encontrado.' });
+      return;
+    }
+
+    res.status(200).json({ message: 'Estado atualizado com sucesso.', user: result.rows[0] });
+  } catch (error) {
+    console.error('Erro ao atualizar estado do utilizador:', error);
+    res.status(500).json({ error: 'Erro interno no servidor.' });
+  }
 });
 
 // Rota protegida com RBAC
