@@ -54,3 +54,5 @@ jobs:
             DB_USER=ch_admin
             DB_PASSWORD=6WY3nKNu3MiaPtI5gI3VfEsxsc8ISUTxTVFlArqLfapyoubk
             JWT_SECRET=super_secret_temporary_key_123
+          secrets: |
+            GOOGLE_CLIENT_ID=GOOGLE_CLIENT_ID:latest
