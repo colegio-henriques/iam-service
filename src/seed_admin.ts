@@ -17,25 +17,26 @@ async function seedAdmin() {
     const salt = await bcrypt.genSalt(10);
     const password_hash = await bcrypt.hash('admin123', salt);
 
-    const email = 'admin@colegiohenriques.ao';
+    const email = 'benone.marcos@colegiohenriques.ao';
     const role = 'admin';
-    const first_name = 'Admin';
-    const last_name = 'Sistema';
+    const first_name = 'Benone';
+    const last_name = 'Marcos';
 
     const res = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
     if (res.rows.length > 0) {
-      console.log('✅ A conta de admin já existe na base de dados (admin@colegiohenriques.pt).');
+      await pool.query('UPDATE users SET role = $1, is_active = true WHERE email = $2', [role, email]);
+      console.log('✅ A conta benone.marcos@colegiohenriques.ao já existia e foi atualizada para admin global.');
       return;
     }
 
     await pool.query(
-      `INSERT INTO users (email, password_hash, role, first_name, last_name) 
-       VALUES ($1, $2, $3, $4, $5)`,
+      `INSERT INTO users (email, password_hash, role, first_name, last_name, is_active) 
+       VALUES ($1, $2, $3, $4, $5, true)`,
       [email, password_hash, role, first_name, last_name]
     );
 
-    console.log('✅ Conta de admin provisionada com sucesso!');
-    console.log('📧 Email: admin@colegiohenriques.pt');
+    console.log('✅ Conta de Administrador Global provisionada com sucesso!');
+    console.log('📧 Email: benone.marcos@colegiohenriques.ao');
     console.log('🔑 Password: admin123');
   } catch (err) {
     console.error('❌ Erro ao criar conta de admin:', err);
