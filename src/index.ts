@@ -45,35 +45,80 @@ app.post('/register', async (req: Request, res: Response) => {
   }
 });
 
-// Endpoint de Login
-app.post('/login', async (req: Request, res: Response) => {
+import { OAuth2Client } from 'google-auth-library';
+
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+// Endpoint de Autenticação Google OAuth2
+app.post('/auth/google', async (req: Request, res: Response) => {
   try {
-    const { email, password } = req.body;
+    const { credential } = req.body;
 
-    const result = await query('SELECT * FROM users WHERE email = $1 AND is_active = true', [email]);
-    if (result.rows.length === 0) {
-      res.status(401).json({ error: 'Credenciais inválidas.' });
+    if (!credential) {
+      res.status(400).json({ error: 'Token Google não fornecido.' });
       return;
     }
 
-    const user = result.rows[0];
-    const validPassword = await bcrypt.compare(password, user.password_hash);
-    
-    if (!validPassword) {
-      res.status(401).json({ error: 'Credenciais inválidas.' });
+    // Verificar e desencriptar o ID Token do Google
+    const ticket = await googleClient.verifyIdToken({
+      idToken: credential,
+      audience: process.env.GOOGLE_CLIENT_ID || undefined,
+    } as any);
+
+    const payload = ticket.getPayload();
+    if (!payload || !payload.email) {
+      res.status(401).json({ error: 'Token Google inválido.' });
       return;
     }
 
+    const { email, given_name, family_name, hd } = payload;
+
+    // RESTRIÇÃO OBRIGATÓRIA DE DOMÍNIO
+    const REQUIRED_DOMAIN = 'colegiohenriques.ao';
+    const emailDomain = email.split('@')[1];
+
+    if (emailDomain !== REQUIRED_DOMAIN && hd !== REQUIRED_DOMAIN) {
+      res.status(403).json({ 
+        error: `Acesso negado. Apenas utilizadores com conta @${REQUIRED_DOMAIN} podem aceder ao sistema.` 
+      });
+      return;
+    }
+
+    // Verificar se o utilizador já existe na base de dados
+    let userResult = await query('SELECT * FROM users WHERE email = $1', [email]);
+    let user;
+
+    if (userResult.rows.length === 0) {
+      // Criar automaticamente a conta para utilizadores válidos do domínio
+      const newUser = await query(
+        `INSERT INTO users (email, password_hash, role, first_name, last_name, is_active)
+         VALUES ($1, $2, $3, $4, $5, true) RETURNING id, email, role, first_name, last_name`,
+        [email, 'OAUTH2_GOOGLE_NO_PASSWORD', 'admin', given_name || 'Utilizador', family_name || 'Google']
+      );
+      user = newUser.rows[0];
+    } else {
+      user = userResult.rows[0];
+    }
+
+    if (!user.is_active) {
+      res.status(403).json({ error: 'Conta suspensa. Contacte a administração.' });
+      return;
+    }
+
+    // Gerar JWT interno da plataforma
     const token = generateToken({
       id: user.id,
       email: user.email,
       role: user.role
     });
 
-    res.status(200).json({ token, user: { id: user.id, email: user.email, role: user.role } });
-  } catch (error) {
-    console.error('Erro no login:', error);
-    res.status(500).json({ error: 'Erro interno no servidor.' });
+    res.status(200).json({ 
+      token, 
+      user: { id: user.id, email: user.email, role: user.role, first_name: user.first_name, last_name: user.last_name } 
+    });
+  } catch (error: any) {
+    console.error('Erro na autenticação Google OAuth2:', error);
+    res.status(401).json({ error: 'Falha na autenticação Google OAuth2: ' + (error.message || 'Token inválido') });
   }
 });
 
